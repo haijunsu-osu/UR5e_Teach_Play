@@ -75,12 +75,11 @@ code {
 
 .studio-layout {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr) 430px;
+  grid-template-columns: minmax(0, 1fr) 430px;
   gap: 12px;
   padding: 12px;
 }
 
-.station-panel,
 .robot-panel,
 .viewer-panel {
   background: linear-gradient(180deg, rgba(24, 31, 44, 0.96), rgba(19, 25, 38, 0.96));
@@ -89,15 +88,8 @@ code {
   box-shadow: var(--shadow);
 }
 
-.station-panel,
 .robot-panel {
   padding: 12px;
-}
-
-.station-panel {
-  display: grid;
-  gap: 12px;
-  align-content: start;
 }
 
 .panel-caption,
@@ -244,40 +236,10 @@ code {
   color: #ffb8b8;
 }
 
-.station-tree,
-.station-summary,
 .joint-jog-list,
 .waypoint-table {
   display: grid;
   gap: 8px;
-}
-
-.tree-item {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  background: rgba(255, 255, 255, 0.03);
-  text-align: left;
-  cursor: pointer;
-}
-
-.tree-item.is-root {
-  color: var(--muted-strong);
-}
-
-.tree-item.is-active {
-  background: linear-gradient(90deg, rgba(93, 167, 255, 0.2), rgba(93, 167, 255, 0.05));
-  border-color: rgba(93, 167, 255, 0.26);
-}
-
-.tree-chevron,
-.tree-indent {
-  width: 14px;
-  flex: 0 0 14px;
 }
 
 .robot-panel {
@@ -560,7 +522,7 @@ input[type="range"] {
 
 @media (max-width: 1420px) {
   .studio-layout {
-    grid-template-columns: 220px minmax(0, 1fr) 390px;
+    grid-template-columns: minmax(0, 1fr) 390px;
   }
 }
 
@@ -573,12 +535,8 @@ input[type="range"] {
     grid-template-columns: 220px minmax(0, 1fr);
   }
 
-  .station-panel {
-    order: 2;
-  }
-
   .robot-panel {
-    order: 3;
+    order: 2;
   }
 
   .viewport,

@@ -108,11 +108,9 @@ export default function App() {
   const selectedSolutionIndex = selectedSolution
     ? solutions.findIndex((solution) => solution.id === selectedSolution.id)
     : -1;
-  const ikBranchCountLabel = `${solutions.length} IK branch${solutions.length === 1 ? "" : "es"}`;
   const analyticalBranchLabel = `${solutions.length} analytical branch${
     solutions.length === 1 ? "" : "es"
   }`;
-  const waypointCountLabel = `${waypoints.length} waypoint${waypoints.length === 1 ? "" : "s"}`;
   const trail = activeTrajectory
     ? activeTrajectory.samples.map((sample) => sample.tcpPose.position)
     : [currentPose.position, ...waypoints.map((waypoint) => waypoint.pose.position)];
@@ -238,28 +236,6 @@ export default function App() {
   return (
     <div className="workcell-shell">
       <main className="studio-layout">
-        <aside className="station-panel">
-          <div className="panel-caption">
-            <span className="panel-kicker">Station Tree</span>
-            <strong>New Station (1)</strong>
-          </div>
-          <div className="station-tree">
-            <button className="tree-item is-root" type="button">
-              <span className="tree-chevron">v</span>
-              <span>UR5e Base</span>
-            </button>
-            <button className="tree-item is-active" type="button">
-              <span className="tree-indent" />
-              <span>UR5e</span>
-            </button>
-          </div>
-          <div className="station-summary">
-            <div className="summary-chip">Official UR visuals</div>
-            <div className="summary-chip">{ikBranchCountLabel}</div>
-            <div className="summary-chip">{waypointCountLabel}</div>
-          </div>
-        </aside>
-
         <section className="viewer-shell">
           <div className="viewer-panel">
             <div className="viewer-header viewer-header-panel">
