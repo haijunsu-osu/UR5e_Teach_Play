@@ -25,18 +25,6 @@ import type {
 } from "./types";
 
 const INITIAL_TARGET_POSE = rowMajorToPose(forwardKinematics(DEFAULT_JOINTS));
-const MENU_ITEMS = ["File", "Edit", "Program", "View", "Tools", "Utilities", "Connect", "Help"];
-const TOOLBAR_ACTIONS = [
-  "Open",
-  "Save",
-  "Undo",
-  "Frame",
-  "Target",
-  "Run",
-  "Pause",
-  "Python",
-  "Docs",
-] as const;
 const POSITION_FIELDS = [
   { label: "X", axis: 0 as const, suffix: "m" },
   { label: "Y", axis: 1 as const, suffix: "m" },
@@ -249,24 +237,6 @@ export default function App() {
 
   return (
     <div className="workcell-shell">
-      <header className="app-frame">
-        <div className="menu-strip">
-          {MENU_ITEMS.map((item) => (
-            <button key={item} className="menu-item" type="button">
-              {item}
-            </button>
-          ))}
-        </div>
-        <div className="toolbar-strip">
-          {TOOLBAR_ACTIONS.map((action) => (
-            <button key={action} className="tool-button" type="button">
-              <span className="tool-icon" aria-hidden="true" />
-              <span>{action}</span>
-            </button>
-          ))}
-        </div>
-      </header>
-
       <main className="studio-layout">
         <aside className="station-panel">
           <div className="panel-caption">

@@ -62,76 +62,15 @@ code {
 
 .workcell-shell {
   min-height: 100vh;
-  padding: 0 0 12px;
+  padding: 12px 0;
 }
 
-.app-frame {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  background: linear-gradient(180deg, rgba(9, 13, 20, 0.98), rgba(9, 13, 20, 0.92));
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
-}
-
-.menu-strip,
-.toolbar-strip {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-}
-
-.menu-strip {
-  min-height: 34px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.toolbar-strip {
-  min-height: 48px;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.menu-item,
-.tool-button {
-  border: 1px solid transparent;
-  background: transparent;
-  cursor: pointer;
-}
-
-.menu-item {
-  padding: 4px 8px;
-  color: var(--muted-strong);
-  border-radius: 6px;
-}
-
-.menu-item:hover,
-.tool-button:hover,
 .tree-item:hover,
 .ik-dropdown-trigger:hover,
 .ik-option:hover,
 .accent-button:hover:not(:disabled),
 .ghost-button:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.06);
-}
-
-.tool-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
-  color: var(--muted-strong);
-  border-radius: 8px;
-}
-
-.tool-icon {
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  background:
-    linear-gradient(135deg, rgba(93, 167, 255, 0.95), rgba(27, 196, 214, 0.75));
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15);
 }
 
 .studio-layout {
