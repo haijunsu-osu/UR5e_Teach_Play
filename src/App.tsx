@@ -291,23 +291,20 @@ export default function App() {
         </aside>
 
         <section className="viewer-shell">
-          <div className="viewer-header">
-            <div>
-              <p className="panel-kicker">Robot Cell</p>
-              <h1>UR5e Simulation Workcell</h1>
-            </div>
-            <div className="viewer-tags">
-              <span className="viewer-tag">Official UR meshes</span>
-              <span className="viewer-tag">Analytical IK x8</span>
-              <span className="viewer-tag">MoveJ preview</span>
-            </div>
-          </div>
-
           <div className="viewer-panel">
-            <div className="viewer-ribbon">
-              <span>Viewer: perspective</span>
-              <span>Reference: base frame</span>
-              <span>Tool: flange/tool0</span>
+            <div className="viewer-header viewer-header-panel">
+              <div className="viewer-title-block">
+                <p className="panel-kicker">Robot Cell</p>
+                <h1>UR5e Simulation Workcell</h1>
+                <span className="viewer-meta-line">
+                  Perspective view | Base frame | Tool flange / tool0
+                </span>
+              </div>
+              <div className="viewer-tags">
+                <span className="viewer-tag">Official UR meshes</span>
+                <span className="viewer-tag">Analytical IK x8</span>
+                <span className="viewer-tag">MoveJ preview</span>
+              </div>
             </div>
             <ThreeViewport
               joints={currentJoints}
