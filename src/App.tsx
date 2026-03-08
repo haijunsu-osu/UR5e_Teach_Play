@@ -276,12 +276,121 @@ export default function App() {
                 <span className="viewer-tag">MoveJ preview</span>
               </div>
             </div>
-            <ThreeViewport
-              joints={currentJoints}
-              targetPose={targetPose}
-              waypoints={waypoints}
-              trail={trail}
-            />
+            <div className="viewer-body">
+              <aside className="viewer-side-panel">
+                <div className="dock-heading">
+                  <h3>Teach &amp; MoveJ</h3>
+                  <button
+                    className="ghost-button"
+                    type="button"
+                    onClick={() => setWaypoints([])}
+                  >
+                    Clear
+                  </button>
+                </div>
+
+                <div className="button-row tight viewer-side-actions">
+                  <button
+                    className="accent-button"
+                    type="button"
+                    disabled={!selectedSolution}
+                    onClick={() => {
+                      if (!selectedSolution) {
+                        return;
+                      }
+                      addWaypoint("IK", selectedSolution.joints, "ik");
+                    }}
+                  >
+                    Add selected branch
+                  </button>
+                  <button
+                    className="ghost-button"
+                    type="button"
+                    onClick={() => addWaypoint("TCP", currentJoints, "current")}
+                  >
+                    Capture TCP
+                  </button>
+                </div>
+
+                <label className="inline-slider">
+                  <span>Speed scale</span>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="1.0"
+                    step="0.05"
+                    value={speedScale}
+                    onChange={(event) => setSpeedScale(Number(event.target.value))}
+                  />
+                  <strong>{speedScale.toFixed(2)}x</strong>
+                </label>
+
+                <div className="button-row tight">
+                  <button
+                    className="accent-button"
+                    type="button"
+                    onClick={startMoveJ}
+                    disabled={waypoints.length === 0}
+                  >
+                    Play MoveJ
+                  </button>
+                  <button className="ghost-button" type="button" onClick={stopPlayback}>
+                    Stop
+                  </button>
+                </div>
+
+                {waypoints.length ? (
+                  <div className="waypoint-table">
+                    {waypoints.map((waypoint) => (
+                      <article key={waypoint.id} className="waypoint-card">
+                        <div className="waypoint-copy">
+                          <strong>{waypoint.name}</strong>
+                          <p>
+                            {waypoint.source === "ik" ? "IK branch" : "Current TCP"} |{" "}
+                            {waypoint.pose.position
+                              .map((value) => `${(value * 1000).toFixed(0)} mm`)
+                              .join(" / ")}
+                          </p>
+                        </div>
+                        <div className="button-row compact">
+                          <button
+                            className="ghost-button"
+                            type="button"
+                            onClick={() => loadWaypoint(waypoint)}
+                          >
+                            Load
+                          </button>
+                          <button
+                            className="ghost-button"
+                            type="button"
+                            onClick={() =>
+                              setWaypoints((previous) =>
+                                previous.filter((entry) => entry.id !== waypoint.id),
+                              )
+                            }
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="empty-state">
+                    Capture at least one waypoint to generate a joint-space MoveJ trajectory.
+                  </p>
+                )}
+              </aside>
+
+              <div className="viewer-canvas-area">
+                <ThreeViewport
+                  joints={currentJoints}
+                  targetPose={targetPose}
+                  waypoints={waypoints}
+                  trail={trail}
+                />
+              </div>
+            </div>
             <div className="status-bar">
               <span>
                 TCP:{" "}
@@ -373,53 +482,48 @@ export default function App() {
                 const displayValue = toDisplayJointValue(jointIndex, currentValue);
                 return (
                   <div key={label} className="joint-jog-row">
-                    <div className="joint-jog-meta">
-                      <strong>
-                        {index + 1}: {label}
-                      </strong>
-                      <span>{formatDisplayJointValue(jointIndex, currentValue)}</span>
-                    </div>
-                    <div className="joint-jog-controls">
-                      <input
-                        type="range"
-                        min={radToDeg(toDisplayJointValue(jointIndex, lower))}
-                        max={radToDeg(toDisplayJointValue(jointIndex, upper))}
-                        step={0.1}
-                        value={radToDeg(displayValue)}
-                        onChange={(event) => {
-                          stopPlayback();
-                          setCurrentJoints((previous) =>
-                            updateJointValue(
-                              previous,
+                    <strong className="joint-jog-label">
+                      {index + 1}: {label}
+                    </strong>
+                    <input
+                      type="range"
+                      min={radToDeg(toDisplayJointValue(jointIndex, lower))}
+                      max={radToDeg(toDisplayJointValue(jointIndex, upper))}
+                      step={0.1}
+                      value={radToDeg(displayValue)}
+                      onChange={(event) => {
+                        stopPlayback();
+                        setCurrentJoints((previous) =>
+                          updateJointValue(
+                            previous,
+                            jointIndex,
+                            toInternalJointValue(
                               jointIndex,
-                              toInternalJointValue(
-                                jointIndex,
-                                degToRad(Number(event.target.value)),
-                              ),
+                              degToRad(Number(event.target.value)),
                             ),
-                          );
-                        }}
-                      />
-                      <input
-                        className="joint-number"
-                        type="number"
-                        step="0.1"
-                        value={radToDeg(displayValue).toFixed(1)}
-                        onChange={(event) => {
-                          stopPlayback();
-                          setCurrentJoints((previous) =>
-                            updateJointValue(
-                              previous,
+                          ),
+                        );
+                      }}
+                    />
+                    <input
+                      className="joint-number"
+                      type="number"
+                      step="0.1"
+                      value={radToDeg(displayValue).toFixed(1)}
+                      onChange={(event) => {
+                        stopPlayback();
+                        setCurrentJoints((previous) =>
+                          updateJointValue(
+                            previous,
+                            jointIndex,
+                            toInternalJointValue(
                               jointIndex,
-                              toInternalJointValue(
-                                jointIndex,
-                                degToRad(Number(event.target.value)),
-                              ),
+                              degToRad(Number(event.target.value)),
                             ),
-                          );
-                        }}
-                      />
-                    </div>
+                          ),
+                        );
+                      }}
+                    />
                   </div>
                 );
               })}
@@ -515,110 +619,6 @@ export default function App() {
               <p className="empty-state">
                 No closed-form solution for the current target pose within the configured
                 joint limits.
-              </p>
-            )}
-            <div className="button-row tight">
-              <button
-                className="accent-button"
-                type="button"
-                disabled={!selectedSolution}
-                onClick={() => {
-                  if (!selectedSolution) {
-                    return;
-                  }
-                  addWaypoint("IK", selectedSolution.joints, "ik");
-                }}
-              >
-                Add selected branch
-              </button>
-            </div>
-          </section>
-
-          <section className="dock-section">
-            <div className="dock-heading">
-              <h3>MoveJ</h3>
-              <button
-                className="ghost-button"
-                type="button"
-                onClick={() => setWaypoints([])}
-              >
-                Clear
-              </button>
-            </div>
-
-            <label className="inline-slider">
-              <span>Speed scale</span>
-              <input
-                type="range"
-                min="0.1"
-                max="1.0"
-                step="0.05"
-                value={speedScale}
-                onChange={(event) => setSpeedScale(Number(event.target.value))}
-              />
-              <strong>{speedScale.toFixed(2)}x</strong>
-            </label>
-
-            <div className="button-row tight">
-              <button
-                className="ghost-button"
-                type="button"
-                onClick={() => addWaypoint("TCP", currentJoints, "current")}
-              >
-                Capture TCP
-              </button>
-              <button
-                className="accent-button"
-                type="button"
-                onClick={startMoveJ}
-                disabled={waypoints.length === 0}
-              >
-                Play MoveJ
-              </button>
-              <button className="ghost-button" type="button" onClick={stopPlayback}>
-                Stop
-              </button>
-            </div>
-
-            {waypoints.length ? (
-              <div className="waypoint-table">
-                {waypoints.map((waypoint) => (
-                  <article key={waypoint.id} className="waypoint-card">
-                    <div className="waypoint-copy">
-                      <strong>{waypoint.name}</strong>
-                      <p>
-                        {waypoint.source === "ik" ? "IK branch" : "Current TCP"} |{" "}
-                        {waypoint.pose.position
-                          .map((value) => `${(value * 1000).toFixed(0)} mm`)
-                          .join(" / ")}
-                      </p>
-                    </div>
-                    <div className="button-row compact">
-                      <button
-                        className="ghost-button"
-                        type="button"
-                        onClick={() => loadWaypoint(waypoint)}
-                      >
-                        Load
-                      </button>
-                      <button
-                        className="ghost-button"
-                        type="button"
-                        onClick={() =>
-                          setWaypoints((previous) =>
-                            previous.filter((entry) => entry.id !== waypoint.id),
-                          )
-                        }
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <p className="empty-state">
-                Capture at least one waypoint to generate a joint-space MoveJ trajectory.
               </p>
             )}
           </section>

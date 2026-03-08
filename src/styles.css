@@ -179,6 +179,29 @@ code {
   overflow: hidden;
 }
 
+.viewer-body {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.viewer-side-panel {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 10px;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015));
+}
+
+.viewer-side-actions {
+  display: grid;
+}
+
+.viewer-canvas-area {
+  min-width: 0;
+}
+
 .status-bar {
   display: flex;
   justify-content: space-between;
@@ -349,28 +372,14 @@ code {
 
 .joint-jog-row {
   display: grid;
-  gap: 6px;
-}
-
-.joint-jog-meta,
-.joint-jog-controls {
-  display: flex;
+  grid-template-columns: 76px minmax(0, 1fr) 74px;
   gap: 8px;
   align-items: center;
 }
 
-.joint-jog-meta {
-  justify-content: space-between;
-  font-size: 0.8rem;
-}
-
-.joint-jog-meta span {
-  color: var(--accent-2);
-  font-family: "IBM Plex Mono", "Cascadia Code", "Consolas", monospace;
-}
-
-.joint-jog-controls input[type="range"] {
-  flex: 1;
+.joint-jog-label {
+  font-size: 0.78rem;
+  line-height: 1.1;
 }
 
 .joint-number {
@@ -560,6 +569,10 @@ input[type="range"] {
     grid-template-columns: 1fr;
   }
 
+  .viewer-body {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
   .station-panel {
     order: 2;
   }
@@ -580,21 +593,33 @@ input[type="range"] {
     padding: 8px;
   }
 
+  .viewer-body {
+    grid-template-columns: 1fr;
+  }
+
+  .viewer-side-panel {
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
   .pose-grid,
   .ik-summary-grid {
     grid-template-columns: 1fr;
   }
 
-  .joint-jog-controls,
-  .waypoint-card,
-  .status-bar {
-    flex-direction: column;
-    align-items: stretch;
+  .joint-jog-row {
+    grid-template-columns: 1fr;
   }
 
   .joint-number {
     width: 100%;
     text-align: left;
+  }
+
+  .waypoint-card,
+  .status-bar {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .viewport,
