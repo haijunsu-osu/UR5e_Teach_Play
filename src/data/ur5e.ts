@@ -1,5 +1,7 @@
 import type { JointVector, Vec3 } from "../types";
 
+const VISUAL_ASSET_ROOT = `${import.meta.env.BASE_URL}assets/ur5e/visual`;
+
 export const JOINT_NAMES = [
   "shoulder_pan_joint",
   "shoulder_lift_joint",
@@ -87,17 +89,17 @@ export const FLANGE_TO_TOOL0 = {
 export const VISUAL_LINKS = [
   {
     name: "base",
-    path: "/assets/ur5e/visual/base.dae",
+    path: `${VISUAL_ASSET_ROOT}/base.dae`,
     offset: { position: [0, 0, 0] as Vec3, rpy: [0, 0, Math.PI] as Vec3 },
   },
   {
     name: "shoulder",
-    path: "/assets/ur5e/visual/shoulder.dae",
+    path: `${VISUAL_ASSET_ROOT}/shoulder.dae`,
     offset: { position: [0, 0, 0] as Vec3, rpy: [0, 0, Math.PI] as Vec3 },
   },
   {
     name: "upper_arm",
-    path: "/assets/ur5e/visual/upperarm.dae",
+    path: `${VISUAL_ASSET_ROOT}/upperarm.dae`,
     offset: {
       position: [0, 0, 0.138] as Vec3,
       rpy: [Math.PI / 2, 0, -Math.PI / 2] as Vec3,
@@ -105,7 +107,7 @@ export const VISUAL_LINKS = [
   },
   {
     name: "forearm",
-    path: "/assets/ur5e/visual/forearm.dae",
+    path: `${VISUAL_ASSET_ROOT}/forearm.dae`,
     offset: {
       position: [0, 0, 0.007] as Vec3,
       rpy: [Math.PI / 2, 0, -Math.PI / 2] as Vec3,
@@ -113,7 +115,7 @@ export const VISUAL_LINKS = [
   },
   {
     name: "wrist_1",
-    path: "/assets/ur5e/visual/wrist1.dae",
+    path: `${VISUAL_ASSET_ROOT}/wrist1.dae`,
     offset: {
       position: [0, 0, -0.127] as Vec3,
       rpy: [Math.PI / 2, 0, 0] as Vec3,
@@ -121,7 +123,7 @@ export const VISUAL_LINKS = [
   },
   {
     name: "wrist_2",
-    path: "/assets/ur5e/visual/wrist2.dae",
+    path: `${VISUAL_ASSET_ROOT}/wrist2.dae`,
     offset: {
       position: [0, 0, -0.0997] as Vec3,
       rpy: [0, 0, 0] as Vec3,
@@ -129,7 +131,7 @@ export const VISUAL_LINKS = [
   },
   {
     name: "wrist_3",
-    path: "/assets/ur5e/visual/wrist3.dae",
+    path: `${VISUAL_ASSET_ROOT}/wrist3.dae`,
     offset: {
       position: [0, 0, -0.0989] as Vec3,
       rpy: [Math.PI / 2, 0, 0] as Vec3,
