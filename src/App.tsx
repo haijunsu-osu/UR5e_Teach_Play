@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import ThreeViewport from "./components/ThreeViewport";
 import {
   DEFAULT_JOINTS,
@@ -14,13 +21,15 @@ import {
   radToDeg,
   rowMajorToPose,
 } from "./lib/math";
-import { buildMoveJTrajectory, type MoveJTrajectory } from "./motion/movej";
+import { buildMoveJTrajectory } from "./motion/movej";
+import { buildMoveLTrajectory } from "./motion/movel";
 import type {
   EulerPose,
   IKSolution,
   JointIndex,
   JointVector,
-  MoveJSample,
+  MotionTrajectory,
+  TrajectorySample,
   Waypoint,
 } from "./types";
 
@@ -35,6 +44,23 @@ const ORIENTATION_FIELDS = [
   { label: "Pitch", axis: 1 as const, suffix: "deg" },
   { label: "Yaw", axis: 2 as const, suffix: "deg" },
 ] as const;
+const DEFAULT_TEACH_PANEL_WIDTH = 250;
+const DEFAULT_ROBOT_PANEL_WIDTH = 430;
+const MIN_TEACH_PANEL_WIDTH = 210;
+const MIN_ROBOT_PANEL_WIDTH = 340;
+const MIN_VIEWER_CANVAS_WIDTH = 360;
+const MIN_VIEWER_SHELL_WIDTH = 560;
+const SPLITTER_SIZE = 12;
+
+type DividerTarget = "teach" | "robot";
+
+interface ResizeSession {
+  target: DividerTarget;
+  startX: number;
+  startWidth: number;
+  min: number;
+  max: number;
+}
 
 function cloneJoints(joints: JointVector): JointVector {
   return [...joints] as JointVector;
@@ -56,13 +82,6 @@ function formatDisplayJointValue(joint: JointIndex, internalValue: number): stri
   return formatRadians(toDisplayJointValue(joint, internalValue));
 }
 
-function formatBranchSignature(solution: IKSolution): string {
-  const shoulder = solution.branch.shoulder > 0 ? "S+" : "S-";
-  const wrist = solution.branch.wrist > 0 ? "W+" : "W-";
-  const elbow = solution.branch.elbow > 0 ? "E+" : "E-";
-  return `${shoulder} ${wrist} ${elbow}`;
-}
-
 function updateJointValue(
   joints: JointVector,
   index: JointIndex,
@@ -74,7 +93,7 @@ function updateJointValue(
   return next;
 }
 
-function sampleAtTime(samples: MoveJSample[], elapsed: number): MoveJSample {
+function sampleAtTime(samples: TrajectorySample[], elapsed: number): TrajectorySample {
   for (const sample of samples) {
     if (sample.time >= elapsed) {
       return sample;
@@ -82,7 +101,7 @@ function sampleAtTime(samples: MoveJSample[], elapsed: number): MoveJSample {
   }
   const last = samples.at(-1);
   if (!last) {
-    throw new Error("Cannot sample an empty MoveJ trajectory.");
+    throw new Error("Cannot sample an empty trajectory.");
   }
   return last;
 }
@@ -94,12 +113,17 @@ export default function App() {
   const [isIkDropdownOpen, setIsIkDropdownOpen] = useState(false);
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
   const [speedScale, setSpeedScale] = useState(0.5);
-  const [activeTrajectory, setActiveTrajectory] = useState<MoveJTrajectory | null>(
-    null,
-  );
+  const [activeTrajectory, setActiveTrajectory] = useState<MotionTrajectory | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [motionError, setMotionError] = useState<string | null>(null);
+  const [teachPanelWidth, setTeachPanelWidth] = useState(DEFAULT_TEACH_PANEL_WIDTH);
+  const [robotPanelWidth, setRobotPanelWidth] = useState(DEFAULT_ROBOT_PANEL_WIDTH);
+  const [activeDivider, setActiveDivider] = useState<DividerTarget | null>(null);
   const frameRef = useRef<number | null>(null);
+  const studioLayoutRef = useRef<HTMLElement | null>(null);
+  const viewerBodyRef = useRef<HTMLDivElement | null>(null);
+  const resizeSessionRef = useRef<ResizeSession | null>(null);
 
   const currentPose = poseFromJoints(currentJoints);
   const solutions = inverseKinematics(targetPose, currentJoints);
@@ -131,6 +155,73 @@ export default function App() {
   useEffect(() => {
     setTargetPose(poseFromJoints(currentJoints));
   }, [currentJoints]);
+
+  useEffect(() => {
+    const syncPanelWidths = () => {
+      const viewerWidth = viewerBodyRef.current?.clientWidth ?? 0;
+      const teachMax = Math.max(
+        MIN_TEACH_PANEL_WIDTH,
+        viewerWidth - MIN_VIEWER_CANVAS_WIDTH - SPLITTER_SIZE,
+      );
+      setTeachPanelWidth((previous) =>
+        clamp(previous, MIN_TEACH_PANEL_WIDTH, teachMax),
+      );
+
+      const studioWidth = studioLayoutRef.current?.clientWidth ?? 0;
+      const robotMax = Math.max(
+        MIN_ROBOT_PANEL_WIDTH,
+        studioWidth - MIN_VIEWER_SHELL_WIDTH - SPLITTER_SIZE,
+      );
+      setRobotPanelWidth((previous) =>
+        clamp(previous, MIN_ROBOT_PANEL_WIDTH, robotMax),
+      );
+    };
+
+    syncPanelWidths();
+    window.addEventListener("resize", syncPanelWidths);
+    return () => {
+      window.removeEventListener("resize", syncPanelWidths);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      const session = resizeSessionRef.current;
+      if (!session) {
+        return;
+      }
+
+      const delta = event.clientX - session.startX;
+      const nextWidth =
+        session.target === "teach"
+          ? session.startWidth + delta
+          : session.startWidth - delta;
+      const clampedWidth = clamp(nextWidth, session.min, session.max);
+
+      if (session.target === "teach") {
+        setTeachPanelWidth(clampedWidth);
+        return;
+      }
+      setRobotPanelWidth(clampedWidth);
+    };
+
+    const endResize = () => {
+      resizeSessionRef.current = null;
+      setActiveDivider(null);
+      document.body.classList.remove("is-resizing");
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", endResize);
+    window.addEventListener("pointercancel", endResize);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", endResize);
+      window.removeEventListener("pointercancel", endResize);
+      document.body.classList.remove("is-resizing");
+    };
+  }, []);
 
   useEffect(() => {
     if (!isPlaying || !activeTrajectory) {
@@ -172,8 +263,94 @@ export default function App() {
     }
   };
 
+  const scrubTrajectory = (nextElapsed: number) => {
+    if (!activeTrajectory?.samples.length) {
+      return;
+    }
+
+    stopPlayback();
+    const boundedElapsed = clamp(nextElapsed, 0, activeTrajectory.duration);
+    const sample = sampleAtTime(activeTrajectory.samples, boundedElapsed);
+    setElapsedTime(boundedElapsed);
+    setCurrentJoints(sample.joints);
+  };
+
+  const getTeachPanelBounds = (): readonly [number, number] => {
+    const viewerWidth = viewerBodyRef.current?.clientWidth ?? 0;
+    return [
+      MIN_TEACH_PANEL_WIDTH,
+      Math.max(MIN_TEACH_PANEL_WIDTH, viewerWidth - MIN_VIEWER_CANVAS_WIDTH - SPLITTER_SIZE),
+    ] as const;
+  };
+
+  const getRobotPanelBounds = (): readonly [number, number] => {
+    const studioWidth = studioLayoutRef.current?.clientWidth ?? 0;
+    return [
+      MIN_ROBOT_PANEL_WIDTH,
+      Math.max(MIN_ROBOT_PANEL_WIDTH, studioWidth - MIN_VIEWER_SHELL_WIDTH - SPLITTER_SIZE),
+    ] as const;
+  };
+
+  const startResize =
+    (target: DividerTarget) => (event: ReactPointerEvent<HTMLDivElement>) => {
+      const [min, max] =
+        target === "teach" ? getTeachPanelBounds() : getRobotPanelBounds();
+      resizeSessionRef.current = {
+        target,
+        startX: event.clientX,
+        startWidth: target === "teach" ? teachPanelWidth : robotPanelWidth,
+        min,
+        max,
+      };
+      setActiveDivider(target);
+      document.body.classList.add("is-resizing");
+    };
+
+  const nudgeDivider =
+    (target: DividerTarget) => (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+        return;
+      }
+
+      event.preventDefault();
+      const delta = event.key === "ArrowRight" ? 24 : -24;
+      if (target === "teach") {
+        const [min, max] = getTeachPanelBounds();
+        setTeachPanelWidth((previous) => clamp(previous + delta, min, max));
+        return;
+      }
+
+      const [min, max] = getRobotPanelBounds();
+      setRobotPanelWidth((previous) => clamp(previous - delta, min, max));
+    };
+
+  const playTrajectory = (trajectory: MotionTrajectory) => {
+    stopPlayback();
+
+    if (!trajectory.samples.length) {
+      setActiveTrajectory(null);
+      setElapsedTime(0);
+      setMotionError(trajectory.error ?? "The motion planner returned no trajectory.");
+      return;
+    }
+
+    setMotionError(null);
+    setActiveTrajectory(trajectory);
+    setElapsedTime(0);
+    setIsPlaying(true);
+  };
+
+  const clearMotionPlan = () => {
+    stopPlayback();
+    setWaypoints([]);
+    setActiveTrajectory(null);
+    setElapsedTime(0);
+    setMotionError(null);
+  };
+
   const setTargetField = (axis: 0 | 1 | 2, value: number) => {
     stopPlayback();
+    setMotionError(null);
     setTargetPose((previous) => ({
       ...previous,
       position: previous.position.map((entry, index) =>
@@ -184,6 +361,7 @@ export default function App() {
 
   const setTargetRotation = (axis: 0 | 1 | 2, degrees: number) => {
     stopPlayback();
+    setMotionError(null);
     setTargetPose((previous) => ({
       ...previous,
       rpy: previous.rpy.map((entry, index) =>
@@ -193,6 +371,7 @@ export default function App() {
   };
 
   const addWaypoint = (name: string, joints: JointVector, source: Waypoint["source"]) => {
+    setMotionError(null);
     setWaypoints((previous) => [
       ...previous,
       {
@@ -208,16 +387,21 @@ export default function App() {
   const startMoveJ = () => {
     const points = [currentJoints, ...waypoints.map((waypoint) => waypoint.joints)];
     const trajectory = buildMoveJTrajectory(points, speedScale);
-    if (!trajectory.samples.length) {
-      return;
-    }
-    setActiveTrajectory(trajectory);
-    setElapsedTime(0);
-    setIsPlaying(true);
+    playTrajectory(trajectory);
+  };
+
+  const startMoveL = () => {
+    const trajectory = buildMoveLTrajectory(
+      currentJoints,
+      waypoints.map((waypoint) => waypoint.pose),
+      speedScale,
+    );
+    playTrajectory(trajectory);
   };
 
   const loadWaypoint = (waypoint: Waypoint) => {
     stopPlayback();
+    setMotionError(null);
     setCurrentJoints(cloneJoints(waypoint.joints));
   };
 
@@ -228,14 +412,26 @@ export default function App() {
     }
 
     stopPlayback();
+    setMotionError(null);
     setSelectedSolutionId(solution.id);
     setCurrentJoints(cloneJoints(solution.joints));
     setIsIkDropdownOpen(false);
   };
 
+  const studioLayoutStyle = {
+    "--robot-panel-width": `${robotPanelWidth}px`,
+  } as CSSProperties;
+  const viewerBodyStyle = {
+    "--teach-panel-width": `${teachPanelWidth}px`,
+  } as CSSProperties;
+
   return (
     <div className="workcell-shell">
-      <main className="studio-layout">
+      <main
+        ref={studioLayoutRef}
+        className="studio-layout"
+        style={studioLayoutStyle}
+      >
         <section className="viewer-shell">
           <div className="viewer-panel">
             <div className="viewer-header viewer-header-panel">
@@ -249,17 +445,21 @@ export default function App() {
               <div className="viewer-tags">
                 <span className="viewer-tag">Official UR meshes</span>
                 <span className="viewer-tag">Analytical IK x8</span>
-                <span className="viewer-tag">MoveJ preview</span>
+                <span className="viewer-tag">MoveJ + MoveL</span>
               </div>
             </div>
-            <div className="viewer-body">
+            <div
+              ref={viewerBodyRef}
+              className="viewer-body"
+              style={viewerBodyStyle}
+            >
               <aside className="viewer-side-panel">
                 <div className="dock-heading">
-                  <h3>Teach &amp; MoveJ</h3>
+                  <h3>Teach &amp; Motion</h3>
                   <button
                     className="ghost-button"
                     type="button"
-                    onClick={() => setWaypoints([])}
+                    onClick={clearMotionPlan}
                   >
                     Clear
                   </button>
@@ -310,10 +510,40 @@ export default function App() {
                   >
                     Play MoveJ
                   </button>
+                  <button
+                    className="accent-button"
+                    type="button"
+                    onClick={startMoveL}
+                    disabled={waypoints.length === 0}
+                  >
+                    Play MoveL
+                  </button>
                   <button className="ghost-button" type="button" onClick={stopPlayback}>
                     Stop
                   </button>
                 </div>
+
+                <label className="timeline-slider">
+                  <span>
+                    Trajectory {activeTrajectory ? `(${activeTrajectory.motionType})` : ""}
+                  </span>
+                  <div className="timeline-slider-row">
+                    <input
+                      type="range"
+                      min="0"
+                      max={activeTrajectory?.duration ?? 1}
+                      step="0.01"
+                      value={activeTrajectory ? elapsedTime : 0}
+                      disabled={!activeTrajectory || Boolean(motionError)}
+                      onChange={(event) => scrubTrajectory(Number(event.target.value))}
+                    />
+                    <strong>
+                      {activeTrajectory
+                        ? `${elapsedTime.toFixed(2)} / ${activeTrajectory.duration.toFixed(2)} s`
+                        : "No plan"}
+                    </strong>
+                  </div>
+                </label>
 
                 {waypoints.length ? (
                   <div className="waypoint-table">
@@ -353,10 +583,21 @@ export default function App() {
                   </div>
                 ) : (
                   <p className="empty-state">
-                    Capture at least one waypoint to generate a joint-space MoveJ trajectory.
+                    Capture at least one waypoint to generate MoveJ or MoveL trajectories.
                   </p>
                 )}
               </aside>
+
+              <div
+                className={`panel-splitter ${activeDivider === "teach" ? "is-active" : ""}`}
+                role="separator"
+                tabIndex={0}
+                aria-label="Resize teach panel"
+                aria-orientation="vertical"
+                aria-valuenow={Math.round(teachPanelWidth)}
+                onPointerDown={startResize("teach")}
+                onKeyDown={nudgeDivider("teach")}
+              />
 
               <div className="viewer-canvas-area">
                 <ThreeViewport
@@ -367,6 +608,7 @@ export default function App() {
                 />
               </div>
             </div>
+
             <div className="status-bar">
               <span>
                 TCP:{" "}
@@ -376,14 +618,29 @@ export default function App() {
               </span>
               <span>Selected IK: {selectedSolution ? selectedSolution.label : "none"}</span>
               <span>
-                Playback:{" "}
-                {activeTrajectory
-                  ? `${elapsedTime.toFixed(2)} / ${activeTrajectory.duration.toFixed(2)} s`
+                Motion:{" "}
+                {motionError
+                  ? motionError
+                  : activeTrajectory
+                    ? `${activeTrajectory.motionType} ${elapsedTime.toFixed(2)} / ${activeTrajectory.duration.toFixed(2)} s`
                   : "idle"}
               </span>
             </div>
           </div>
         </section>
+
+        <div
+          className={`panel-splitter panel-splitter-main ${
+            activeDivider === "robot" ? "is-active" : ""
+          }`}
+          role="separator"
+          tabIndex={0}
+          aria-label="Resize robot controls panel"
+          aria-orientation="vertical"
+          aria-valuenow={Math.round(robotPanelWidth)}
+          onPointerDown={startResize("robot")}
+          onKeyDown={nudgeDivider("robot")}
+        />
 
         <aside className="robot-panel">
           <div className="robot-panel-header">
@@ -396,6 +653,7 @@ export default function App() {
               type="button"
               onClick={() => {
                 stopPlayback();
+                setMotionError(null);
                 setTargetPose(currentPose);
               }}
             >
@@ -444,6 +702,7 @@ export default function App() {
                 type="button"
                 onClick={() => {
                   stopPlayback();
+                  setMotionError(null);
                   setCurrentJoints(DEFAULT_JOINTS);
                 }}
               >
@@ -469,6 +728,7 @@ export default function App() {
                       value={radToDeg(displayValue)}
                       onChange={(event) => {
                         stopPlayback();
+                        setMotionError(null);
                         setCurrentJoints((previous) =>
                           updateJointValue(
                             previous,
@@ -488,6 +748,7 @@ export default function App() {
                       value={radToDeg(displayValue).toFixed(1)}
                       onChange={(event) => {
                         stopPlayback();
+                        setMotionError(null);
                         setCurrentJoints((previous) =>
                           updateJointValue(
                             previous,
@@ -542,53 +803,19 @@ export default function App() {
                         type="button"
                         onClick={() => visualizeSolution(solution.id)}
                       >
-                        <span className="ik-option-head">
-                          <strong>{solution.label}</strong>
-                          <span>{`#${index + 1}`}</span>
+                        <span className="ik-option-line">
+                          <strong>{`#${index + 1}`}</strong>
+                          <code>
+                            {solution.joints
+                              .map((value, jointIndex) =>
+                                formatDisplayJointValue(jointIndex as JointIndex, value),
+                              )
+                              .join("  ")}
+                          </code>
                         </span>
-                        <span className="ik-option-meta">
-                          {formatBranchSignature(solution)} |{" "}
-                          {solution.positionErrorMm.toFixed(3)} mm /{" "}
-                          {solution.orientationErrorDeg.toFixed(3)} deg
-                        </span>
-                        <code>
-                          {solution.joints
-                            .map((value, jointIndex) =>
-                              formatDisplayJointValue(jointIndex as JointIndex, value),
-                            )
-                            .join("  ")}
-                        </code>
                       </button>
                     ))}
                   </div>
-                ) : null}
-
-                {selectedSolution ? (
-                  <>
-                    <div className="ik-summary-grid">
-                      <div className="ik-summary-card">
-                        <span>Configuration</span>
-                        <strong>{formatBranchSignature(selectedSolution)}</strong>
-                      </div>
-                      <div className="ik-summary-card">
-                        <span>Residual</span>
-                        <strong>
-                          {selectedSolution.positionErrorMm.toFixed(3)} mm /{" "}
-                          {selectedSolution.orientationErrorDeg.toFixed(3)} deg
-                        </strong>
-                      </div>
-                    </div>
-                    <div className="ik-selected-joints">
-                      <span>Selected joint values</span>
-                      <code>
-                        {selectedSolution.joints
-                          .map((value, index) =>
-                            formatDisplayJointValue(index as JointIndex, value),
-                          )
-                          .join(" · ")}
-                      </code>
-                    </div>
-                  </>
                 ) : null}
               </>
             ) : (

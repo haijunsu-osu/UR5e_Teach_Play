@@ -7,24 +7,19 @@ import {
   rowMajorToPose,
   smoothstep01,
 } from "../lib/math";
-import type { JointVector, MoveJSample } from "../types";
-
-export interface MoveJTrajectory {
-  duration: number;
-  samples: MoveJSample[];
-}
+import type { JointVector, MotionTrajectory, TrajectorySample } from "../types";
 
 export function buildMoveJTrajectory(
   points: JointVector[],
   speedScale: number,
   fps = 60,
-): MoveJTrajectory {
+): MotionTrajectory {
   if (points.length < 2) {
-    return { duration: 0, samples: [] };
+    return { motionType: "MoveJ", duration: 0, samples: [] };
   }
 
   const safeSpeedScale = clamp(speedScale, 0.05, 1.5);
-  const samples: MoveJSample[] = [];
+  const samples: TrajectorySample[] = [];
   let currentTime = 0;
 
   for (let segmentIndex = 0; segmentIndex < points.length - 1; segmentIndex += 1) {
@@ -54,6 +49,7 @@ export function buildMoveJTrajectory(
   }
 
   return {
+    motionType: "MoveJ",
     duration: currentTime,
     samples,
   };

@@ -57,8 +57,17 @@ export interface Waypoint {
   source: "current" | "ik";
 }
 
-export interface MoveJSample {
+export type MotionType = "MoveJ" | "MoveL";
+
+export interface TrajectorySample {
   time: number;
   joints: JointVector;
   tcpPose: EulerPose;
+}
+
+export interface MotionTrajectory {
+  motionType: MotionType;
+  duration: number;
+  samples: TrajectorySample[];
+  error?: string;
 }
