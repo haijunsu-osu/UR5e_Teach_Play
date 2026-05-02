@@ -17,6 +17,7 @@ import { forwardKinematics, inverseKinematics } from "./kinematics/ur5eKinematic
 import {
   clamp,
   degToRad,
+  distanceJointVectors,
   formatRadians,
   radToDeg,
   rowMajorToPose,
@@ -60,6 +61,86 @@ interface ResizeSession {
   startWidth: number;
   min: number;
   max: number;
+}
+
+interface EditableNumericInputProps {
+  value: number;
+  decimals: number;
+  className?: string;
+  onValueChange: (value: number) => void;
+}
+
+function formatDecimal(value: number, decimals: number): string {
+  return value.toFixed(decimals);
+}
+
+function parseNumericDraft(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed || !/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(trimmed)) {
+    return null;
+  }
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function EditableNumericInput({
+  value,
+  decimals,
+  className,
+  onValueChange,
+}: EditableNumericInputProps) {
+  const [draft, setDraft] = useState(() => formatDecimal(value, decimals));
+  const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setDraft(formatDecimal(value, decimals));
+    }
+  }, [decimals, isEditing, value]);
+
+  const commitDraft = () => {
+    const parsed = parseNumericDraft(draft);
+    setIsEditing(false);
+    if (parsed === null) {
+      setDraft(formatDecimal(value, decimals));
+      return;
+    }
+    onValueChange(parsed);
+    setDraft(formatDecimal(parsed, decimals));
+  };
+
+  const cancelDraft = () => {
+    setIsEditing(false);
+    setDraft(formatDecimal(value, decimals));
+  };
+
+  return (
+    <input
+      className={className}
+      type="text"
+      inputMode="decimal"
+      value={draft}
+      onFocus={(event) => {
+        setIsEditing(true);
+        event.currentTarget.select();
+      }}
+      onChange={(event) => {
+        setDraft(event.target.value);
+      }}
+      onBlur={cancelDraft}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          commitDraft();
+          event.currentTarget.blur();
+          return;
+        }
+        if (event.key === "Escape") {
+          cancelDraft();
+          event.currentTarget.blur();
+        }
+      }}
+    />
+  );
 }
 
 function cloneJoints(joints: JointVector): JointVector {
@@ -124,6 +205,7 @@ export default function App() {
   const studioLayoutRef = useRef<HTMLElement | null>(null);
   const viewerBodyRef = useRef<HTMLDivElement | null>(null);
   const resizeSessionRef = useRef<ResizeSession | null>(null);
+  const suppressNextPoseSolveRef = useRef(false);
 
   const currentPose = poseFromJoints(currentJoints);
   const solutions = inverseKinematics(targetPose, currentJoints);
@@ -153,8 +235,37 @@ export default function App() {
   }, [selectedSolutionId, solutions]);
 
   useEffect(() => {
+    suppressNextPoseSolveRef.current = true;
     setTargetPose(poseFromJoints(currentJoints));
   }, [currentJoints]);
+
+  useEffect(() => {
+    if (suppressNextPoseSolveRef.current) {
+      suppressNextPoseSolveRef.current = false;
+      return;
+    }
+
+    const ikSolutions = inverseKinematics(targetPose, currentJoints);
+    const nextSolution =
+      (selectedSolutionId
+        ? ikSolutions.find(
+            (solution) => solution.id === selectedSolutionId && solution.valid,
+          )
+        : null) ??
+      ikSolutions.find((solution) => solution.valid) ??
+      ikSolutions[0] ??
+      null;
+
+    if (!nextSolution) {
+      return;
+    }
+
+    if (distanceJointVectors(nextSolution.joints, currentJoints) < 1e-6) {
+      return;
+    }
+
+    setCurrentJoints(cloneJoints(nextSolution.joints));
+  }, [targetPose]);
 
   useEffect(() => {
     const syncPanelWidths = () => {
@@ -670,11 +781,10 @@ export default function App() {
               {POSITION_FIELDS.map(({ label, axis, suffix }) => (
                 <label key={label} className={`pose-cell pose-cell-${label.toLowerCase()}`}>
                   <span>{label}</span>
-                  <input
-                    type="number"
-                    step="0.001"
-                    value={targetPose.position[axis].toFixed(3)}
-                    onChange={(event) => setTargetField(axis, Number(event.target.value))}
+                  <EditableNumericInput
+                    decimals={3}
+                    value={targetPose.position[axis]}
+                    onValueChange={(value) => setTargetField(axis, value)}
                   />
                   <small>{suffix}</small>
                 </label>
@@ -682,11 +792,10 @@ export default function App() {
               {ORIENTATION_FIELDS.map(({ label, axis, suffix }) => (
                 <label key={label} className={`pose-cell pose-cell-${label.toLowerCase()}`}>
                   <span>{label}</span>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={radToDeg(targetPose.rpy[axis]).toFixed(1)}
-                    onChange={(event) => setTargetRotation(axis, Number(event.target.value))}
+                  <EditableNumericInput
+                    decimals={1}
+                    value={radToDeg(targetPose.rpy[axis])}
+                    onValueChange={(value) => setTargetRotation(axis, value)}
                   />
                   <small>{suffix}</small>
                 </label>
@@ -741,12 +850,11 @@ export default function App() {
                         );
                       }}
                     />
-                    <input
+                    <EditableNumericInput
                       className="joint-number"
-                      type="number"
-                      step="0.1"
-                      value={radToDeg(displayValue).toFixed(1)}
-                      onChange={(event) => {
+                      decimals={1}
+                      value={radToDeg(displayValue)}
+                      onValueChange={(value) => {
                         stopPlayback();
                         setMotionError(null);
                         setCurrentJoints((previous) =>
@@ -755,7 +863,7 @@ export default function App() {
                             jointIndex,
                             toInternalJointValue(
                               jointIndex,
-                              degToRad(Number(event.target.value)),
+                              degToRad(value),
                             ),
                           ),
                         );
